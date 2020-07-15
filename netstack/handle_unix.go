@@ -1,4 +1,4 @@
-// +build windows
+// +build linux darwin
 
 package netstack
 
@@ -16,6 +16,7 @@ import (
 type Stack struct {
 	core.Stack
 	Pool     sync.Pool
+	IPFilter *utils.IPFilter
 	Tree     *utils.Tree
 	Resolver utils.Resolver
 	Handler  Handler
@@ -27,9 +28,10 @@ func NewStack(handler Handler, w io.Writer) *Stack {
 		Pool: sync.Pool{
 			New: func() interface{} { return NewMessage() },
 		},
-		Tree:    utils.NewTree("."),
-		Handler: handler,
-		counter: uint16(time.Now().Unix()),
+		IPFilter: utils.NewIPFilter(),
+		Tree:     utils.NewTree("."),
+		Handler:  handler,
+		counter:  uint16(time.Now().Unix()),
 	}
 	s.Stack.Init(w, s, false)
 	return s
@@ -43,6 +45,14 @@ func (s *Stack) Close() error {
 
 func (s *Stack) Handle(conn core.Conn) {
 	target := conn.LocalAddr().(*net.TCPAddr)
+
+	if !s.IPFilter.Lookup(target.IP) {
+		s.Info(fmt.Sprintf("direct %v <-TCP-> %v", conn.RemoteAddr(), target))
+		if err := s.HandleTCP2(conn, target); err != nil {
+			s.Error(fmt.Sprintf("handle tcp2 error: %v", err))
+		}
+		return
+	}
 
 	addr, err := s.LookupAddr(target)
 	if err == ErrNotFake {
@@ -72,7 +82,7 @@ func (s *Stack) PickConnType(addr net.UDPAddr) core.PacketConnType {
 		}
 	}
 
-	if addr.Port == 53 {
+	if addr.Port == 53 && !s.IPFilter.Lookup(addr.IP) {
 		return core.ConnType3
 	}
 
@@ -97,6 +107,16 @@ func (s *Stack) HandlePacket(conn core.PacketConn) {
 }
 
 func (s *Stack) HandlePacket2(conn core.PacketConn) {
+	target := conn.LocalAddr().(*net.UDPAddr)
+
+	if !s.IPFilter.Lookup(target.IP) {
+		s.Info(fmt.Sprintf("direct %v <-UDP-> 0.0.0.0:0", conn.RemoteAddr()))
+		if err := s.HandleUDP2(conn); err != nil {
+			s.Error(fmt.Sprintf("handle udp2 error: %v", err))
+		}
+		return
+	}
+
 	pc := NewUDPConn2(conn, s)
 	s.Info(fmt.Sprintf("proxy %v <-UDP-> 0.0.0.0:0", conn.RemoteAddr()))
 	if err := s.HandleUDP(pc); err != nil {
