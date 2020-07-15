@@ -26,7 +26,7 @@ type UDPConn2 struct {
 	raddr  net.UDPAddr
 	nicID  tcpip.NICID
 	unique uint64
-	trans  []stack.TransportEndpointID
+	tranID []stack.TransportEndpointID
 	flags  ports.Flags
 }
 
@@ -52,7 +52,7 @@ func NewUDPConn2(rr *ForwarderRequest) *UDPConn2 {
 
 func (ep *UDPConn2) HandleRequest(rr *ForwarderRequest) error {
 	ep.route = append(ep.route, rr.Route)
-	ep.trans = append(ep.trans, rr.ID)
+	ep.tranID = append(ep.tranID, rr.ID)
 	if tcperr := rr.Stack.RegisterTransportEndpoint(rr.Route.NICID(), []tcpip.NetworkProtocolNumber{rr.Route.NetProto}, udp.ProtocolNumber, rr.ID, ep, ep.flags, rr.Route.NICID()); tcperr != nil {
 		return errors.New(tcperr.String())
 	}
@@ -95,8 +95,8 @@ func (ep *UDPConn2) Wait() {}
 
 func (ep *UDPConn2) closeEndpoint() {
 	for i := range ep.route {
-		ep.stack.UnregisterTransportEndpoint(ep.nicID, []tcpip.NetworkProtocolNumber{ep.route[i].NetProto}, udp.ProtocolNumber, ep.trans[i], ep, ep.flags, ep.nicID)
-		ep.stack.ReleasePort([]tcpip.NetworkProtocolNumber{ep.route[i].NetProto}, udp.ProtocolNumber, ep.trans[i].LocalAddress, ep.trans[i].LocalPort, ep.flags, ep.nicID, tcpip.FullAddress{})
+		ep.stack.UnregisterTransportEndpoint(ep.nicID, []tcpip.NetworkProtocolNumber{ep.route[i].NetProto}, udp.ProtocolNumber, ep.tranID[i], ep, ep.flags, ep.nicID)
+		ep.stack.ReleasePort([]tcpip.NetworkProtocolNumber{ep.route[i].NetProto}, udp.ProtocolNumber, ep.tranID[i].LocalAddress, ep.tranID[i].LocalPort, ep.flags, ep.nicID, tcpip.FullAddress{})
 		ep.route[i].Release()
 	}
 }

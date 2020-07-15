@@ -25,7 +25,7 @@ type UDPConn3 struct {
 	raddr  net.UDPAddr
 	nicID  tcpip.NICID
 	unique uint64
-	trans  stack.TransportEndpointID
+	tranID stack.TransportEndpointID
 	flags  ports.Flags
 }
 
@@ -51,10 +51,10 @@ func NewUDPConn3(rr *ForwarderRequest) *UDPConn3 {
 }
 
 func (ep *UDPConn3) HandleRequest(rr *ForwarderRequest) error {
-	ep.trans = rr.ID
-	ep.trans.RemoteAddress = ""
-	ep.trans.RemotePort = 0
-	if tcperr := rr.Stack.RegisterTransportEndpoint(rr.Route.NICID(), []tcpip.NetworkProtocolNumber{rr.Route.NetProto}, udp.ProtocolNumber, ep.trans, ep, ep.flags, rr.Route.NICID()); tcperr != nil {
+	ep.tranID = rr.ID
+	ep.tranID.RemoteAddress = ""
+	ep.tranID.RemotePort = 0
+	if tcperr := rr.Stack.RegisterTransportEndpoint(rr.Route.NICID(), []tcpip.NetworkProtocolNumber{rr.Route.NetProto}, udp.ProtocolNumber, ep.tranID, ep, ep.flags, rr.Route.NICID()); tcperr != nil {
 		return errors.New(tcperr.String())
 	}
 	return nil
@@ -95,8 +95,8 @@ func (ep *UDPConn3) Abort() {}
 func (ep *UDPConn3) Wait() {}
 
 func (ep *UDPConn3) closeEndpoint() {
-	ep.stack.UnregisterTransportEndpoint(ep.nicID, []tcpip.NetworkProtocolNumber{ep.route.NetProto}, udp.ProtocolNumber, ep.trans, ep, ep.flags, ep.nicID)
-	ep.stack.ReleasePort([]tcpip.NetworkProtocolNumber{ep.route.NetProto}, udp.ProtocolNumber, ep.trans.LocalAddress, ep.trans.LocalPort, ep.flags, ep.nicID, tcpip.FullAddress{})
+	ep.stack.UnregisterTransportEndpoint(ep.nicID, []tcpip.NetworkProtocolNumber{ep.route.NetProto}, udp.ProtocolNumber, ep.tranID, ep, ep.flags, ep.nicID)
+	ep.stack.ReleasePort([]tcpip.NetworkProtocolNumber{ep.route.NetProto}, udp.ProtocolNumber, ep.tranID.LocalAddress, ep.tranID.LocalPort, ep.flags, ep.nicID, tcpip.FullAddress{})
 	ep.route.Release()
 }
 
