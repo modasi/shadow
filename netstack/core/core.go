@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -131,13 +132,15 @@ func (s *Stack) WriteNotify() {
 		view := []buffer.View{packet.Pkt.Header.View(), packet.Pkt.Data.ToView()}
 		buff := buffer.NewVectorisedView(size, view)
 		if _, err := s.Writer.Write(buff.ToView()); err != nil {
+			if errors.Is(err, io.EOF) {
+				return
+			}
 			s.Error(fmt.Sprintf("write to tun error: %v", err))
 		}
 	}
 }
 
 func (s *Stack) Close() error {
-	s.Endpoint.Close()
 	s.Stack.Close()
 	s.Logger.Sync()
 	return nil
